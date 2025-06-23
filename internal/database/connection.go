@@ -1,10 +1,9 @@
-package main
+package database
 
 import (
 	"crypto/tls"
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -26,11 +25,7 @@ type DatabaseConfig struct {
 
 // LoadDatabaseConfig loads database configuration from environment variables
 func LoadDatabaseConfig() (*DatabaseConfig, error) {
-	// Load environment variables from .env file
-	err := godotenv.Load()
-	if err != nil {
-		log.Printf("Warning: Error loading .env file: %v", err)
-	}
+	godotenv.Load()
 
 	config := &DatabaseConfig{
 		Username: os.Getenv("TIDB_USERNAME"),
@@ -40,7 +35,6 @@ func LoadDatabaseConfig() (*DatabaseConfig, error) {
 		Database: os.Getenv("TIDB_DATABASE"),
 	}
 
-	// Set defaults
 	if config.Port == "" {
 		config.Port = "4000"
 	}
@@ -48,7 +42,6 @@ func LoadDatabaseConfig() (*DatabaseConfig, error) {
 		config.Database = "test"
 	}
 
-	// Validate required fields
 	if config.Username == "" || config.Password == "" || config.Host == "" {
 		return nil, fmt.Errorf("missing required environment variables: username, password, and host must be set")
 	}
@@ -58,19 +51,16 @@ func LoadDatabaseConfig() (*DatabaseConfig, error) {
 
 // ConnectDatabase establishes a connection to TiDB Cloud
 func ConnectDatabase() (*sql.DB, error) {
-	// Load configuration
 	config, err := LoadDatabaseConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %v", err)
 	}
 
-	// Register TLS config for secure connection
 	mysql.RegisterTLSConfig("tidb", &tls.Config{
 		MinVersion: tls.VersionTLS12,
 		ServerName: config.Host,
 	})
 
-	// Create MySQL config with improved settings and time parsing
 	cfg := mysql.Config{
 		User:                 config.Username,
 		Passwd:               config.Password,
@@ -80,30 +70,24 @@ func ConnectDatabase() (*sql.DB, error) {
 		TLSConfig:           "tidb",
 		AllowNativePasswords: true,
 		CheckConnLiveness:    true,
-		MaxAllowedPacket:     4 << 20, // 4 MiB
+		MaxAllowedPacket:     4 << 20,
 		Timeout:              30 * time.Second,
 		ReadTimeout:          30 * time.Second,
 		WriteTimeout:         30 * time.Second,
-		ParseTime:            true,  // This is crucial for time parsing
-		Loc:                  time.UTC, // Set timezone to UTC
+		ParseTime:            true,
+		Loc:                  time.UTC,
 	}
 
-	// Get the formatted DSN
-	dsn := cfg.FormatDSN()
-
-	// Open database connection
-	db, err := sql.Open("mysql", dsn)
+	db, err := sql.Open("mysql", cfg.FormatDSN())
 	if err != nil {
 		return nil, fmt.Errorf("error opening database: %v", err)
 	}
 
-	// Set connection pool settings with better values for cloud database
 	db.SetMaxOpenConns(5)
 	db.SetMaxIdleConns(2)
 	db.SetConnMaxLifetime(5 * time.Minute)
 	db.SetConnMaxIdleTime(1 * time.Minute)
 
-	// Test the connection
 	err = db.Ping()
 	if err != nil {
 		db.Close()
@@ -113,78 +97,31 @@ func ConnectDatabase() (*sql.DB, error) {
 	return db, nil
 }
 
-// InitializeDatabase connects to the database and stores it in the global DB variable
-func InitializeDatabase() error {
+// Initialize connects to the database and stores it in the global DB variable
+func Initialize() error {
 	var err error
 	DB, err = ConnectDatabase()
-	if err != nil {
-		return err
-	}
-	
-	fmt.Println("Database connected successfully!")
-	return nil
+	return err
 }
 
-// CloseDatabase closes the database connection
-func CloseDatabase() error {
+// Close closes the database connection
+func Close() error {
 	if DB != nil {
 		return DB.Close()
 	}
 	return nil
 }
 
-// GetDatabase returns the database connection
-func GetDatabase() *sql.DB {
-	return DB
-}
-
 // EnsureConnection checks if the database connection is alive and reconnects if needed
 func EnsureConnection() error {
 	if DB == nil {
-		log.Println("Database connection is nil, reconnecting...")
-		return InitializeDatabase()
+		return Initialize()
 	}
 
 	if err := DB.Ping(); err != nil {
-		log.Printf("Database ping failed: %v, reconnecting...", err)
 		DB.Close()
-		return InitializeDatabase()
+		return Initialize()
 	}
 
 	return nil
-}
-
-// GetTiDBVersion returns the TiDB version
-func GetTiDBVersion() (string, error) {
-	if err := EnsureConnection(); err != nil {
-		return "", err
-	}
-
-	var version string
-	err := DB.QueryRow("SELECT VERSION()").Scan(&version)
-	if err != nil {
-		return "", fmt.Errorf("error getting version: %v", err)
-	}
-
-	return version, nil
-}
-
-// GetCurrentDatabase returns the current database name
-func GetCurrentDatabase() (string, error) {
-	if err := EnsureConnection(); err != nil {
-		return "", err
-	}
-
-	var currentDB string
-	err := DB.QueryRow("SELECT DATABASE()").Scan(&currentDB)
-	if err != nil {
-		return "", fmt.Errorf("error getting current database: %v", err)
-	}
-
-	return currentDB, nil
-}
-
-// TestConnection tests if the database connection is working
-func TestConnection() error {
-	return EnsureConnection()
 }
