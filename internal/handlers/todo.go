@@ -30,12 +30,13 @@ func (h *TodoHandler) GetTodos(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TodoHandler) GetTodo(w http.ResponseWriter, r *http.Request) {
+	 // 1. Extract ID from URL path parameter
 	id, err := strconv.Atoi(mux.Vars(r)["id"])
 	if err != nil {
 		response.Error(w, "Invalid todo ID", http.StatusBadRequest)
 		return
 	}
-
+// 2. Call service layer to get todo by ID
 	todo, err := h.service.GetByID(id)
 	if err != nil {
 		if err.Error() == "todo not found" {
@@ -45,6 +46,7 @@ func (h *TodoHandler) GetTodo(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	// 3. Return successful response with todo data
 	response.Success(w, "Todo fetched successfully", todo, http.StatusOK)
 }
 
