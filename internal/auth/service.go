@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"todo/internal/database"
-	"todo/internal/models"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -26,11 +25,9 @@ func (s *Service) Register(req *RegisterRequest) (*AuthResponse, error) {
 		return nil, err
 	}
 
-	// Check if user already exists
-	if exists, err := s.userExists(req.Username, req.Email); err != nil {
-		return nil, fmt.Errorf("error checking user existence: %v", err)
-	} else if exists {
-		return nil, fmt.Errorf("user with this username or email already exists")
+	// Check if user already exists with specific checks
+	if err := s.checkUserExists(req.Username, req.Email); err != nil {
+		return nil, err
 	}
 
 	// Hash password
@@ -78,22 +75,28 @@ func (s *Service) Login(req *LoginRequest) (*AuthResponse, error) {
 		return nil, err
 	}
 
-	// Get user by email
+	// Check if user exists by email first
 	user, err := s.getUserByEmail(req.Email)
 	if err != nil {
-		return nil, fmt.Errorf("invalid credentials")
+		if err.Error() == "user not found" {
+			return nil, fmt.Errorf("email does not exist")
+		}
+		return nil, fmt.Errorf("error checking user: %v", err)
 	}
 
 	// Get user password for verification
 	var hashedPassword string
 	err = database.DB.QueryRow("SELECT password FROM users WHERE email = ?", req.Email).Scan(&hashedPassword)
 	if err != nil {
-		return nil, fmt.Errorf("invalid credentials")
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("email does not exist")
+		}
+		return nil, fmt.Errorf("error retrieving user data: %v", err)
 	}
 
 	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(req.Password)); err != nil {
-		return nil, fmt.Errorf("invalid credentials")
+		return nil, fmt.Errorf("incorrect password")
 	}
 
 	// Generate JWT token
@@ -108,8 +111,107 @@ func (s *Service) Login(req *LoginRequest) (*AuthResponse, error) {
 	}, nil
 }
 
+func (s *Service) Logout(tokenString string) error {
+	// Parse and validate the token
+	claims, err := s.parseJWTToken(tokenString)
+	if err != nil {
+		return fmt.Errorf("invalid token: %v", err)
+	}
+
+	// Check if token is already expired/blacklisted
+	if s.isTokenBlacklisted(tokenString) {
+		return fmt.Errorf("token is already expired")
+	}
+
+	// Get user ID from claims
+	userID, ok := claims["user_id"].(float64)
+	if !ok {
+		return fmt.Errorf("invalid token claims")
+	}
+
+	// Add token to blacklist
+	_, err = database.DB.Exec(
+		"INSERT INTO expired_tokens (user_id, token) VALUES (?, ?)",
+		int(userID), tokenString,
+	)
+	if err != nil {
+		return fmt.Errorf("error blacklisting token: %v", err)
+	}
+
+	return nil
+}
+
+func (s *Service) parseJWTToken(tokenString string) (jwt.MapClaims, error) {
+	secretKey := "your-secret-key"
+	
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Validate the signing method
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(secretKey), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		// Check if token is expired
+		if exp, ok := claims["exp"].(float64); ok {
+			if time.Now().Unix() > int64(exp) {
+				return nil, fmt.Errorf("token is expired")
+			}
+		}
+		return claims, nil
+	}
+
+	return nil, fmt.Errorf("invalid token")
+}
+
+func (s *Service) isTokenBlacklisted(tokenString string) bool {
+	var count int
+	err := database.DB.QueryRow(
+		"SELECT COUNT(*) FROM expired_tokens WHERE token = ?",
+		tokenString,
+	).Scan(&count)
+	
+	if err != nil {
+		return false
+	}
+	
+	return count > 0
+}
+
+func (s *Service) ValidateToken(tokenString string) (*UserInfo, error) {
+	// Check if token is blacklisted
+	if s.isTokenBlacklisted(tokenString) {
+		return nil, fmt.Errorf("token is blacklisted")
+	}
+
+	// Parse and validate token
+	claims, err := s.parseJWTToken(tokenString)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get user ID from claims
+	userID, ok := claims["user_id"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("invalid token claims")
+	}
+
+	// Get user info
+	user, err := s.getUserByID(int(userID))
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	return user, nil
+}
+
 func (s *Service) getUserByID(id int) (*UserInfo, error) {
-	var user models.User
+	var user User
 	err := database.DB.QueryRow(
 		"SELECT id, username, email, created_at, updated_at FROM users WHERE id = ?", id,
 	).Scan(&user.ID, &user.Username, &user.Email, &user.CreatedAt, &user.UpdatedAt)
@@ -131,7 +233,7 @@ func (s *Service) getUserByID(id int) (*UserInfo, error) {
 }
 
 func (s *Service) getUserByEmail(email string) (*UserInfo, error) {
-	var user models.User
+	var user User
 	err := database.DB.QueryRow(
 		"SELECT id, username, email, created_at, updated_at FROM users WHERE email = ?", email,
 	).Scan(&user.ID, &user.Username, &user.Email, &user.CreatedAt, &user.UpdatedAt)
@@ -228,6 +330,42 @@ func (s *Service) isValidEmail(email string) bool {
 	return emailRegex.MatchString(email)
 }
 
+// Updated function to check specific conflicts
+func (s *Service) checkUserExists(username, email string) error {
+	// Check if username exists
+	var usernameCount int
+	err := database.DB.QueryRow(
+		"SELECT COUNT(*) FROM users WHERE username = ?",
+		username,
+	).Scan(&usernameCount)
+	
+	if err != nil {
+		return fmt.Errorf("error checking username existence: %v", err)
+	}
+	
+	if usernameCount > 0 {
+		return fmt.Errorf("user with this username already exists")
+	}
+
+	// Check if email exists
+	var emailCount int
+	err = database.DB.QueryRow(
+		"SELECT COUNT(*) FROM users WHERE email = ?",
+		email,
+	).Scan(&emailCount)
+	
+	if err != nil {
+		return fmt.Errorf("error checking email existence: %v", err)
+	}
+	
+	if emailCount > 0 {
+		return fmt.Errorf("user with this email already exists")
+	}
+
+	return nil
+}
+
+// Keep the old function for backward compatibility if needed elsewhere
 func (s *Service) userExists(username, email string) (bool, error) {
 	var count int
 	err := database.DB.QueryRow(
