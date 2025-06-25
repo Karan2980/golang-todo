@@ -8,9 +8,8 @@ import (
 	"todo/internal/database"
 	"todo/internal/handlers"
 	"todo/internal/models"
+	"todo/internal/routes"
 	"todo/internal/services"
-
-	"github.com/gorilla/mux"
 )
 
 func main() {
@@ -40,22 +39,7 @@ func main() {
 	todoHandler := handlers.NewTodoHandler(todoService, authService)
 	authHandler := auth.NewHandler(authService)
 
-	// Setup routes
-	router := mux.NewRouter()
-	api := router.PathPrefix("/api/v1").Subrouter()
-	
-	// Todo routes (now require authentication)
-	api.HandleFunc("/todos", todoHandler.GetTodos).Methods("GET")
-	api.HandleFunc("/todos", todoHandler.CreateTodo).Methods("POST")
-	api.HandleFunc("/todos/{id}", todoHandler.GetTodo).Methods("GET")
-	api.HandleFunc("/todos/{id}", todoHandler.UpdateTodo).Methods("PUT")
-	api.HandleFunc("/todos/{id}", todoHandler.DeleteTodo).Methods("DELETE")
-	api.HandleFunc("/todos/{id}/reorder", todoHandler.ReorderTodo).Methods("PUT")
-
-	// Auth routes
-	api.HandleFunc("/auth/register", authHandler.Register).Methods("POST")
-	api.HandleFunc("/auth/login", authHandler.Login).Methods("POST")
-	api.HandleFunc("/auth/logout", authHandler.Logout).Methods("POST")
+	router := routes.SetupRouter(todoHandler, authHandler, authService)
 
 	log.Println("Server starting on :8080")
 	log.Fatal(http.ListenAndServe(":8080", router))
