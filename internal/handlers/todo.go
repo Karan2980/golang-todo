@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"todo/internal/auth"
+	"todo/internal/middleware"
 	"todo/internal/models"
 	"todo/internal/services"
 	"todo/pkg/response"
@@ -27,6 +28,7 @@ func NewTodoHandler(service *services.TodoService, authService *auth.Service) *T
 	}
 }
 
+// not needed
 // Helper function to extract and validate user from token
 func (h *TodoHandler) getUserFromToken(r *http.Request) (*auth.UserInfo, error) {
 	// Get token from Authorization header
@@ -49,12 +51,12 @@ func (h *TodoHandler) getUserFromToken(r *http.Request) (*auth.UserInfo, error) 
 
 	return user, nil
 }
+// not needed
 
 func (h *TodoHandler) GetTodos(w http.ResponseWriter, r *http.Request) {
-	// Get user from token
-	user, err := h.getUserFromToken(r)
-	if err != nil {
-		response.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+	user, ok := middleware.GetUserFromContext(r.Context())
+	if !ok {
+		response.Error(w, "Unauthorized: user not found in context", http.StatusUnauthorized)
 		return
 	}
 
