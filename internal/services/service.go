@@ -1,4 +1,4 @@
-package auth
+package services
 
 import (
 	"database/sql"
@@ -8,18 +8,19 @@ import (
 	"time"
 
 	"todo/internal/database"
+	"todo/internal/models"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type Service struct{}
+type AuthService struct{}
 
-func NewService() *Service {
-	return &Service{}
+func NewAuthService() *AuthService {
+	return &AuthService{}
 }
 
-func (s *Service) Register(req *RegisterRequest) (*AuthResponse, error) {
+func (s *AuthService) Register(req *models.RegisterRequest) (*models.AuthResponse, error) {
 	// Validate input
 	if err := s.validateRegistrationInput(req); err != nil {
 		return nil, err
@@ -63,13 +64,13 @@ func (s *Service) Register(req *RegisterRequest) (*AuthResponse, error) {
 		return nil, fmt.Errorf("error generating token: %v", err)
 	}
 
-	return &AuthResponse{
+	return &models.AuthResponse{
 		Token: token,
 		User:  *user,
 	}, nil
 }
 
-func (s *Service) Login(req *LoginRequest) (*AuthResponse, error) {
+func (s *AuthService) Login(req *models.LoginRequest) (*models.AuthResponse, error) {
 	// Validate input
 	if err := s.validateLoginInput(req); err != nil {
 		return nil, err
@@ -105,13 +106,13 @@ func (s *Service) Login(req *LoginRequest) (*AuthResponse, error) {
 		return nil, fmt.Errorf("error generating token: %v", err)
 	}
 
-	return &AuthResponse{
+	return &models.AuthResponse{
 		Token: token,
 		User:  *user,
 	}, nil
 }
 
-func (s *Service) Logout(tokenString string) error {
+func (s *AuthService) Logout(tokenString string) error {
 	// Parse and validate the token
 	claims, err := s.parseJWTToken(tokenString)
 	if err != nil {
@@ -141,9 +142,9 @@ func (s *Service) Logout(tokenString string) error {
 	return nil
 }
 
-func (s *Service) parseJWTToken(tokenString string) (jwt.MapClaims, error) {
+func (s *AuthService) parseJWTToken(tokenString string) (jwt.MapClaims, error) {
 	secretKey := "your-secret-key"
-	
+
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Validate the signing method
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -169,21 +170,21 @@ func (s *Service) parseJWTToken(tokenString string) (jwt.MapClaims, error) {
 	return nil, fmt.Errorf("invalid token")
 }
 
-func (s *Service) isTokenBlacklisted(tokenString string) bool {
+func (s *AuthService) isTokenBlacklisted(tokenString string) bool {
 	var count int
 	err := database.DB.QueryRow(
 		"SELECT COUNT(*) FROM expired_tokens WHERE token = ?",
 		tokenString,
 	).Scan(&count)
-	
+
 	if err != nil {
 		return false
 	}
-	
+
 	return count > 0
 }
 
-func (s *Service) ValidateToken(tokenString string) (*UserInfo, error) {
+func (s *AuthService) ValidateToken(tokenString string) (*models.UserInfo, error) {
 	// Check if token is blacklisted
 	if s.isTokenBlacklisted(tokenString) {
 		return nil, fmt.Errorf("token is blacklisted")
@@ -210,8 +211,8 @@ func (s *Service) ValidateToken(tokenString string) (*UserInfo, error) {
 	return user, nil
 }
 
-func (s *Service) getUserByID(id int) (*UserInfo, error) {
-	var user User
+func (s *AuthService) getUserByID(id int) (*models.UserInfo, error) {
+	var user models.User
 	err := database.DB.QueryRow(
 		"SELECT id, username, email, created_at, updated_at FROM users WHERE id = ?", id,
 	).Scan(&user.ID, &user.Username, &user.Email, &user.CreatedAt, &user.UpdatedAt)
@@ -223,7 +224,7 @@ func (s *Service) getUserByID(id int) (*UserInfo, error) {
 		return nil, err
 	}
 
-	return &UserInfo{
+	return &models.UserInfo{
 		ID:        user.ID,
 		Username:  user.Username,
 		Email:     user.Email,
@@ -232,8 +233,8 @@ func (s *Service) getUserByID(id int) (*UserInfo, error) {
 	}, nil
 }
 
-func (s *Service) getUserByEmail(email string) (*UserInfo, error) {
-	var user User
+func (s *AuthService) getUserByEmail(email string) (*models.UserInfo, error) {
+	var user models.User
 	err := database.DB.QueryRow(
 		"SELECT id, username, email, created_at, updated_at FROM users WHERE email = ?", email,
 	).Scan(&user.ID, &user.Username, &user.Email, &user.CreatedAt, &user.UpdatedAt)
@@ -245,7 +246,7 @@ func (s *Service) getUserByEmail(email string) (*UserInfo, error) {
 		return nil, err
 	}
 
-	return &UserInfo{
+	return &models.UserInfo{
 		ID:        user.ID,
 		Username:  user.Username,
 		Email:     user.Email,
@@ -254,7 +255,7 @@ func (s *Service) getUserByEmail(email string) (*UserInfo, error) {
 	}, nil
 }
 
-func (s *Service) generateJWTToken(user *UserInfo) (string, error) {
+func (s *AuthService) generateJWTToken(user *models.UserInfo) (string, error) {
 	// Create JWT claims
 	claims := jwt.MapClaims{
 		"user_id":  user.ID,
@@ -277,7 +278,7 @@ func (s *Service) generateJWTToken(user *UserInfo) (string, error) {
 	return tokenString, nil
 }
 
-func (s *Service) validateRegistrationInput(req *RegisterRequest) error {
+func (s *AuthService) validateRegistrationInput(req *models.RegisterRequest) error {
 	// Validate username
 	if strings.TrimSpace(req.Username) == "" {
 		return fmt.Errorf("username is required")
@@ -308,7 +309,7 @@ func (s *Service) validateRegistrationInput(req *RegisterRequest) error {
 	return nil
 }
 
-func (s *Service) validateLoginInput(req *LoginRequest) error {
+func (s *AuthService) validateLoginInput(req *models.LoginRequest) error {
 	// Validate email
 	if strings.TrimSpace(req.Email) == "" {
 		return fmt.Errorf("email is required")
@@ -325,24 +326,24 @@ func (s *Service) validateLoginInput(req *LoginRequest) error {
 	return nil
 }
 
-func (s *Service) isValidEmail(email string) bool {
+func (s *AuthService) isValidEmail(email string) bool {
 	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 	return emailRegex.MatchString(email)
 }
 
 // Updated function to check specific conflicts
-func (s *Service) checkUserExists(username, email string) error {
+func (s *AuthService) checkUserExists(username, email string) error {
 	// Check if username exists
 	var usernameCount int
 	err := database.DB.QueryRow(
 		"SELECT COUNT(*) FROM users WHERE username = ?",
 		username,
 	).Scan(&usernameCount)
-	
+
 	if err != nil {
 		return fmt.Errorf("error checking username existence: %v", err)
 	}
-	
+
 	if usernameCount > 0 {
 		return fmt.Errorf("user with this username already exists")
 	}
@@ -353,11 +354,11 @@ func (s *Service) checkUserExists(username, email string) error {
 		"SELECT COUNT(*) FROM users WHERE email = ?",
 		email,
 	).Scan(&emailCount)
-	
+
 	if err != nil {
 		return fmt.Errorf("error checking email existence: %v", err)
 	}
-	
+
 	if emailCount > 0 {
 		return fmt.Errorf("user with this email already exists")
 	}
@@ -366,16 +367,16 @@ func (s *Service) checkUserExists(username, email string) error {
 }
 
 // Keep the old function for backward compatibility if needed elsewhere
-func (s *Service) userExists(username, email string) (bool, error) {
+func (s *AuthService) userExists(username, email string) (bool, error) {
 	var count int
 	err := database.DB.QueryRow(
 		"SELECT COUNT(*) FROM users WHERE username = ? OR email = ?",
 		username, email,
 	).Scan(&count)
-	
+
 	if err != nil {
 		return false, err
 	}
-	
+
 	return count > 0, nil
 }

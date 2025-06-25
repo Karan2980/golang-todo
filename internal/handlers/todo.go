@@ -39,7 +39,6 @@ func (h *TodoHandler) GetTodos(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TodoHandler) GetTodo(w http.ResponseWriter, r *http.Request) {
-	// Get user from context
 	user, ok := middleware.GetUserFromContext(r.Context())
 	if !ok {
 		response.Error(w, "Unauthorized: user not found in context", http.StatusUnauthorized)
@@ -69,7 +68,6 @@ func (h *TodoHandler) GetTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TodoHandler) CreateTodo(w http.ResponseWriter, r *http.Request) {
-	// Get user from context
 	user, ok := middleware.GetUserFromContext(r.Context())
 	if !ok {
 		response.Error(w, "Unauthorized: user not found in context", http.StatusUnauthorized)
@@ -91,7 +89,6 @@ func (h *TodoHandler) CreateTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TodoHandler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
-	// Get user from context
 	user, ok := middleware.GetUserFromContext(r.Context())
 	if !ok {
 		response.Error(w, "Unauthorized: user not found in context", http.StatusUnauthorized)
@@ -123,7 +120,6 @@ func (h *TodoHandler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TodoHandler) DeleteTodo(w http.ResponseWriter, r *http.Request) {
-	// Get user from context
 	user, ok := middleware.GetUserFromContext(r.Context())
 	if !ok {
 		response.Error(w, "Unauthorized: user not found in context", http.StatusUnauthorized)
@@ -149,7 +145,6 @@ func (h *TodoHandler) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 
 // New handler for reordering todos
 func (h *TodoHandler) ReorderTodo(w http.ResponseWriter, r *http.Request) {
-	// Get user from context
 	user, ok := middleware.GetUserFromContext(r.Context())
 	if !ok {
 		response.Error(w, "Unauthorized: user not found in context", http.StatusUnauthorized)

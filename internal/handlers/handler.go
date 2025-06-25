@@ -1,4 +1,4 @@
-package auth
+package handlers
 
 import (
 	"encoding/json"
@@ -6,19 +6,21 @@ import (
 	"net/http"
 	"strings"
 
+	"todo/internal/models"
+	"todo/internal/services"
 	"todo/pkg/response"
 )
 
 type Handler struct {
-	service *Service
+	service *services.AuthService
 }
 
-func NewHandler(service *Service) *Handler {
+func NewHandler(service *services.AuthService) *Handler {
 	return &Handler{service: service}
 }
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
-	var req RegisterRequest
+	var req models.RegisterRequest
 	
 	// Decode JSON request body
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -48,7 +50,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
-	var req LoginRequest
+	var req models.LoginRequest
 	
 	// Decode JSON request body
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

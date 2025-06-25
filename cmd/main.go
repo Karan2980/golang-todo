@@ -33,11 +33,11 @@ func main() {
 
 	// Initialize services
 	todoService := services.NewTodoService()
-	authService := auth.NewService()
+	authService := services.NewAuthService()
 
-	// Initialize handlers (todoHandler)
-	todoHandler := handlers.NewTodoHandler(todoService)   
-	authHandler := auth.NewHandler(authService)
+	// Initialize handlers
+	todoHandler := handlers.NewTodoHandler(todoService)
+	authHandler := handlers.NewHandler(authService)
 
 	router := routes.SetupRouter(todoHandler, authHandler, authService)
 
