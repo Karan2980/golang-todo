@@ -2,12 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
-	"todo/internal/auth"
 	"todo/internal/middleware"
 	"todo/internal/models"
 	"todo/internal/services"
@@ -17,41 +14,14 @@ import (
 )
 
 type TodoHandler struct {
-	service     *services.TodoService
-	authService *auth.Service
+	service *services.TodoService
 }
 
-func NewTodoHandler(service *services.TodoService, authService *auth.Service) *TodoHandler {
+func NewTodoHandler(service *services.TodoService) *TodoHandler {
 	return &TodoHandler{
-		service:     service,
-		authService: authService,
+		service: service,
 	}
 }
-
-// not needed
-// Helper function to extract and validate user from token
-func (h *TodoHandler) getUserFromToken(r *http.Request) (*auth.UserInfo, error) {
-	// Get token from Authorization header
-	token := r.Header.Get("Authorization")
-	
-	// If token starts with "Bearer ", remove it for backward compatibility
-	if strings.HasPrefix(token, "Bearer ") {
-		token = strings.TrimPrefix(token, "Bearer ")
-	}
-	
-	if strings.TrimSpace(token) == "" {
-		return nil, fmt.Errorf("authorization token is required")
-	}
-
-	// Validate token and get user info
-	user, err := h.authService.ValidateToken(strings.TrimSpace(token))
-	if err != nil {
-		return nil, err
-	}
-
-	return user, nil
-}
-// not needed
 
 func (h *TodoHandler) GetTodos(w http.ResponseWriter, r *http.Request) {
 	user, ok := middleware.GetUserFromContext(r.Context())
@@ -69,10 +39,10 @@ func (h *TodoHandler) GetTodos(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TodoHandler) GetTodo(w http.ResponseWriter, r *http.Request) {
-	// Get user from token
-	user, err := h.getUserFromToken(r)
-	if err != nil {
-		response.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+	// Get user from context
+	user, ok := middleware.GetUserFromContext(r.Context())
+	if !ok {
+		response.Error(w, "Unauthorized: user not found in context", http.StatusUnauthorized)
 		return
 	}
 
@@ -99,10 +69,10 @@ func (h *TodoHandler) GetTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TodoHandler) CreateTodo(w http.ResponseWriter, r *http.Request) {
-	// Get user from token
-	user, err := h.getUserFromToken(r)
-	if err != nil {
-		response.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+	// Get user from context
+	user, ok := middleware.GetUserFromContext(r.Context())
+	if !ok {
+		response.Error(w, "Unauthorized: user not found in context", http.StatusUnauthorized)
 		return
 	}
 
@@ -121,10 +91,10 @@ func (h *TodoHandler) CreateTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TodoHandler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
-	// Get user from token
-	user, err := h.getUserFromToken(r)
-	if err != nil {
-		response.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+	// Get user from context
+	user, ok := middleware.GetUserFromContext(r.Context())
+	if !ok {
+		response.Error(w, "Unauthorized: user not found in context", http.StatusUnauthorized)
 		return
 	}
 
@@ -153,10 +123,10 @@ func (h *TodoHandler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TodoHandler) DeleteTodo(w http.ResponseWriter, r *http.Request) {
-	// Get user from token
-	user, err := h.getUserFromToken(r)
-	if err != nil {
-		response.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+	// Get user from context
+	user, ok := middleware.GetUserFromContext(r.Context())
+	if !ok {
+		response.Error(w, "Unauthorized: user not found in context", http.StatusUnauthorized)
 		return
 	}
 
@@ -179,10 +149,10 @@ func (h *TodoHandler) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 
 // New handler for reordering todos
 func (h *TodoHandler) ReorderTodo(w http.ResponseWriter, r *http.Request) {
-	// Get user from token
-	user, err := h.getUserFromToken(r)
-	if err != nil {
-		response.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+	// Get user from context
+	user, ok := middleware.GetUserFromContext(r.Context())
+	if !ok {
+		response.Error(w, "Unauthorized: user not found in context", http.StatusUnauthorized)
 		return
 	}
 
