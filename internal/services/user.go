@@ -3,36 +3,18 @@ package services
 import (
 	"database/sql"
 	"fmt"
-	"time"
 	"todo/internal/database"
+	"todo/internal/models"
 )
 
 type UserService struct{}
-
-// Local User struct (copy of auth.User)
-type User struct {
-	ID        int
-	Username  string
-	Email     string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-// Local UserInfo struct (copy of auth.UserInfo)
-type UserInfo struct {
-	ID        int
-	Username  string
-	Email     string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
 
 func NewUserService() *UserService {
 	return &UserService{}
 }
 
-func (s *UserService) GetUserByID(id int) (*UserInfo, error) {
-	var user User
+func (s *UserService) GetUserByID(id int) (*models.UserInfo, error) {
+	var user models.User
 	err := database.DB.QueryRow(
 		"SELECT id, username, email, created_at, updated_at FROM users WHERE id = ?", id,
 	).Scan(&user.ID, &user.Username, &user.Email, &user.CreatedAt, &user.UpdatedAt)
@@ -44,7 +26,7 @@ func (s *UserService) GetUserByID(id int) (*UserInfo, error) {
 		return nil, err
 	}
 
-	return &UserInfo{
+	return &models.UserInfo{
 		ID:        user.ID,
 		Username:  user.Username,
 		Email:     user.Email,
@@ -53,8 +35,8 @@ func (s *UserService) GetUserByID(id int) (*UserInfo, error) {
 	}, nil
 }
 
-func (s *UserService) GetUserByEmail(email string) (*UserInfo, error) {
-	var user User
+func (s *UserService) GetUserByEmail(email string) (*models.UserInfo, error) {
+	var user models.User
 	err := database.DB.QueryRow(
 		"SELECT id, username, email, created_at, updated_at FROM users WHERE email = ?", email,
 	).Scan(&user.ID, &user.Username, &user.Email, &user.CreatedAt, &user.UpdatedAt)
@@ -66,7 +48,7 @@ func (s *UserService) GetUserByEmail(email string) (*UserInfo, error) {
 		return nil, err
 	}
 
-	return &UserInfo{
+	return &models.UserInfo{
 		ID:        user.ID,
 		Username:  user.Username,
 		Email:     user.Email,

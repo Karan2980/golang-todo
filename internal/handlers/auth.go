@@ -6,20 +6,20 @@ import (
 	"net/http"
 	"strings"
 
+	"todo/internal/auth"
 	"todo/internal/models"
-	"todo/internal/services"
 	"todo/pkg/response"
 )
 
-type Handler struct {
-	service *services.AuthService
+type AuthHandler struct {
+	service *auth.AuthService
 }
 
-func NewHandler(service *services.AuthService) *Handler {
-	return &Handler{service: service}
+func NewAuthHandler(service *auth.AuthService) *AuthHandler {
+	return &AuthHandler{service: service}
 }
 
-func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req models.RegisterRequest
 	
 	// Decode JSON request body
@@ -49,7 +49,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, "User registered successfully", authResp, http.StatusCreated)
 }
 
-func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req models.LoginRequest
 	
 	// Decode JSON request body
@@ -79,7 +79,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, "Login successful", authResp, http.StatusOK)
 }
 
-func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	// Get token from Authorization header
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
@@ -118,7 +118,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 // Helper function to extract token from request (can be used by other handlers)
-func (h *Handler) ExtractTokenFromRequest(r *http.Request) (string, error) {
+func (h *AuthHandler) ExtractTokenFromRequest(r *http.Request) (string, error) {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
 		return "", fmt.Errorf("authorization header is required")
@@ -134,4 +134,4 @@ func (h *Handler) ExtractTokenFromRequest(r *http.Request) (string, error) {
 	}
 
 	return token, nil
-}
+} 
