@@ -2,14 +2,14 @@ package routes
 
 import (
 	"net/http"
+	"todo/internal/auth"
 	"todo/internal/handlers"
 	"todo/internal/middleware"
-	"todo/internal/services"
 
 	"github.com/gorilla/mux"
 )
 
-func SetupTodoRoutes(api *mux.Router, todoHandler *handlers.TodoHandler, authService *services.AuthService) {
+func SetupTodoRoutes(api *mux.Router, todoHandler *handlers.TodoHandler, authService *auth.AuthService) {
 	api.Handle("/todos", middleware.AuthMiddleware(authService)(http.HandlerFunc(todoHandler.GetTodos))).Methods("GET")
 	api.Handle("/todos", middleware.AuthMiddleware(authService)(http.HandlerFunc(todoHandler.CreateTodo))).Methods("POST")
 	api.Handle("/todos/{id}", middleware.AuthMiddleware(authService)(http.HandlerFunc(todoHandler.GetTodo))).Methods("GET")

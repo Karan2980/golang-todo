@@ -5,15 +5,15 @@ import (
 	"net/http"
 	"strings"
 
+	"todo/internal/auth"
 	"todo/internal/models"
-	"todo/internal/services"
 )
 
 type contextKey string
 
 const userContextKey contextKey = "userInfo"
 
-func AuthMiddleware(authService *services.AuthService) func(http.Handler) http.Handler {
+func AuthMiddleware(authService *auth.AuthService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")

@@ -1,4 +1,4 @@
-package services
+package auth
 
 import (
 	"database/sql"
@@ -9,15 +9,18 @@ import (
 
 	"todo/internal/database"
 	"todo/internal/models"
+	"todo/internal/services"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type AuthService struct{}
+type AuthService struct {
+	userService *services.UserService
+}
 
-func NewAuthService() *AuthService {
-	return &AuthService{}
+func NewAuthService(userService *services.UserService) *AuthService {
+	return &AuthService{userService: userService}
 }
 
 func (s *AuthService) Register(req *models.RegisterRequest) (*models.AuthResponse, error) {
@@ -53,7 +56,7 @@ func (s *AuthService) Register(req *models.RegisterRequest) (*models.AuthRespons
 	}
 
 	// Fetch the created user
-	user, err := s.getUserByID(int(userID))
+	user, err := s.userService.GetUserByID(int(userID))
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +80,7 @@ func (s *AuthService) Login(req *models.LoginRequest) (*models.AuthResponse, err
 	}
 
 	// Check if user exists by email first
-	user, err := s.getUserByEmail(req.Email)
+	user, err := s.userService.GetUserByEmail(req.Email)
 	if err != nil {
 		if err.Error() == "user not found" {
 			return nil, fmt.Errorf("email does not exist")
@@ -203,56 +206,12 @@ func (s *AuthService) ValidateToken(tokenString string) (*models.UserInfo, error
 	}
 
 	// Get user info
-	user, err := s.getUserByID(int(userID))
+	user, err := s.userService.GetUserByID(int(userID))
 	if err != nil {
 		return nil, fmt.Errorf("user not found")
 	}
 
 	return user, nil
-}
-
-func (s *AuthService) getUserByID(id int) (*models.UserInfo, error) {
-	var user models.User
-	err := database.DB.QueryRow(
-		"SELECT id, username, email, created_at, updated_at FROM users WHERE id = ?", id,
-	).Scan(&user.ID, &user.Username, &user.Email, &user.CreatedAt, &user.UpdatedAt)
-
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("user not found")
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return &models.UserInfo{
-		ID:        user.ID,
-		Username:  user.Username,
-		Email:     user.Email,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-	}, nil
-}
-
-func (s *AuthService) getUserByEmail(email string) (*models.UserInfo, error) {
-	var user models.User
-	err := database.DB.QueryRow(
-		"SELECT id, username, email, created_at, updated_at FROM users WHERE email = ?", email,
-	).Scan(&user.ID, &user.Username, &user.Email, &user.CreatedAt, &user.UpdatedAt)
-
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("user not found")
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return &models.UserInfo{
-		ID:        user.ID,
-		Username:  user.Username,
-		Email:     user.Email,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-	}, nil
 }
 
 func (s *AuthService) generateJWTToken(user *models.UserInfo) (string, error) {
@@ -379,4 +338,4 @@ func (s *AuthService) userExists(username, email string) (bool, error) {
 	}
 
 	return count > 0, nil
-}
+} 

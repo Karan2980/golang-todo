@@ -7,7 +7,6 @@ import (
 	"todo/internal/auth"
 	"todo/internal/database"
 	"todo/internal/handlers"
-	"todo/internal/models"
 	"todo/internal/routes"
 	"todo/internal/services"
 )
@@ -19,25 +18,26 @@ func main() {
 	defer database.Close()
 
 	// Create tables in correct order (users first, then todos, then expired_tokens)
-	if err := auth.CreateUsersTable(); err != nil {
+	if err := database.CreateUsersTable(); err != nil {
 		log.Fatal("Failed to create users table:", err)
 	}
 
-	if err := models.CreateTodosTable(); err != nil {
+	if err := database.CreateTodosTable(); err != nil {
 		log.Fatal("Failed to create todos table:", err)
 	}
 
-	if err := auth.CreateExpiredTokensTable(); err != nil {
+	if err := database.CreateExpiredTokensTable(); err != nil {
 		log.Fatal("Failed to create expired_tokens table:", err)
 	}
 
 	// Initialize services
 	todoService := services.NewTodoService()
-	authService := services.NewAuthService()
+	userService := services.NewUserService()
+	authService := auth.NewAuthService(userService)
 
 	// Initialize handlers
 	todoHandler := handlers.NewTodoHandler(todoService)
-	authHandler := handlers.NewHandler(authService)
+	authHandler := handlers.NewAuthHandler(authService)
 
 	router := routes.SetupRouter(todoHandler, authHandler, authService)
 
